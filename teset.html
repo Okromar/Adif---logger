@@ -83,6 +83,7 @@
                 <th>Sent</th>
                 <th>Mode</th>
                 <th>Details</th>
+                <th>time</th>
             </tr>
         </thead>
         <tbody>
@@ -90,87 +91,132 @@
     </table>
 
     <script>
+        const day =  new Date();
+        let year = day.getFullYear();
+        let daytoday = day.getDay();
+        let month = day.getMonth();
+        let hours = day.getHours();
+        let minutes = day.getMinutes();
+        let seconds = day.getSeconds();
+
+        const date1 = day.getDate();
+
+        let time = (`${hours}:${minutes}:${seconds}`);
+        console.log(time);
+        let dayval = (`${date1}:${month + 1}:${year}`);
+        console.log(dayval);
 
         const logEntries = [];
         let n = 1;
-
-
-        function check(){
-            Notification.requestPermission()
-            .then(()=> {
-                const Notification = new Notification("test",{
-                    body:"this is a notification",
-                    icon:"https://cdn.pixabay.com/photo/2014/04/02/10/24/warning-303768_960_720.png",
-                })
-            })
+        const hamBands = {
+            "160m": [18000000, 20000000],
+            "80m": [35000000, 40000000],
+            "40m": [7.0, 7.3],
+            "30m": [10.1, 10.15],
+            "20m": [14.0, 14.35],
+            "17m": [18.068, 18.168],
+            "15m": [21.0, 21.45],
+            "12m": [24.89, 24.99],
+            "10m": [28.0, 29.7],
+            "6m": [50.0, 54.0],
+            "2m": [144.0, 148.0],
+            "70cm": [420.0, 450.0],
+        };
+        function isFrequencyInBand(frequency) {
+            for (const [band, range] of Object.entries(hamBands)) {
+                if (frequency >= range[0] && frequency <= range[1]) {
+                    return true; // Frequency is valid
+                }
+            }
+            return false; // Frequency is out of bounds
         }
-        function addToTable() {
-                const frequency = document.getElementById('frequency').value;
-                const stationName = document.getElementById('stationName').value;
-                let receive = document.getElementById('receive').value;
-                let sent = document.getElementById('sent').value;
-                const mode = document.getElementById('mode').value;
-                const details = document.getElementById('details').value;
 
-                // Définir des valeurs par défaut si les champs sont vides
-                if (receive === "") {
-                    receive = "59";
-                    document.getElementById('receive').value = "59";
-                }
-                if (sent === "") {
-                    sent = "59";
-                    document.getElementById('sent').value = "59";
-                }
-                if (isNaN(sent) === true){
-                    console.log('nan');
-                    check()
-                }
+    function check() {
+        Notification.requestPermission().then(() => {
+            new Notification("Warning", {
+                body: "Receive or Sent is not a valid number!",
+                icon: "https://cdn.pixabay.com/photo/2014/04/02/10/24/warning-303768_960_720.png",
+            });
+        });
+        return window.confirm("Are you sure to push? Receive/Sent are not valid numbers.");
+    }
 
-                const tableBody = document.getElementById('adifTable').querySelector('tbody');
-                const row = document.createElement('tr');
+    function addToTable() {
+        const frequency = document.getElementById('frequency').value;
+        const stationName = document.getElementById('stationName').value;
+        let receive = document.getElementById('receive').value;
+        let sent = document.getElementById('sent').value;
+        const mode = document.getElementById('mode').value;
+        const details = document.getElementById('details').value;
 
-                // Ajouter les valeurs dans la ligne du tableau
-                [n, frequency, stationName, receive, sent, mode, details].forEach(value => {
-                    const cell = document.createElement('td');
-                    cell.textContent = value;
-                    row.appendChild(cell);
-                });
+        // Default values if fields are empty
+        if (receive === "") receive = "59";
+        if (sent === "") sent = "59";
 
-                tableBody.appendChild(row);
+        // Check if `receive` or `sent` contains non-numeric values
+        if (isNaN(receive) || isNaN(sent)) {
+            const confirm = check();
+            if (!confirm) return; // Cancel operation if the user refuses
+        }
 
-                // Réinitialiser les champs du formulaire
-                document.getElementById('frequency').value = '';
-                document.getElementById('stationName').value = '';
-                document.getElementById('receive').value = '';
-                document.getElementById('sent').value = '';
-                document.getElementById('mode').value = '';
-                document.getElementById('details').value = '';
+        // Check if the frequency is within a valid ham band
+        const isInBand = isFrequencyInBand(parseFloat(frequency));
 
-                // Ajouter les données dans logEntries
-                logEntries.push([frequency, stationName, receive, sent, mode, details]);
-                console.log(logEntries);
+        if (!isInBand) {
+            const override = window.confirm(
+                `Frequency ${frequency} MHz is not within a valid ham band. Do you want to add it anyway?`
+            );
+            if (!override) {
+                return; // Stop further execution if the user does not override
+            }
+        }
 
-                n = n + 1 ; 
+        // Add the row to the table
+        const tableBody = document.getElementById('adifTable').querySelector('tbody');
+        const row = document.createElement('tr');
+
+        // Populate row cells
+        [n, frequency, stationName, receive, sent, mode, details, time].forEach(value => {
+            const cell = document.createElement('td');
+            cell.textContent = value;
+            row.appendChild(cell);
+        });
+
+        tableBody.appendChild(row);
+
+        // Reset form fields
+        document.getElementById('frequency').value = '';
+        document.getElementById('stationName').value = '';
+        document.getElementById('receive').value = '59';
+        document.getElementById('sent').value = '59';
+        document.getElementById('mode').value = '';
+        document.getElementById('details').value = '';
+
+        // Log the entry and increment the counter
+        logEntries.push([frequency, stationName, receive, sent, mode, details, time, dayval]);
+        console.log(logEntries);
+        n++;
 }
 
 
-        document.querySelectorAll('.form-grid input').forEach((input, index, inputs) => {
-            input.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter') {
-                    const nextInput = inputs[index + 1];
-                    if (nextInput) {
-                        event.preventDefault();
-                        nextInput.focus();
-                    } else {
-                        event.preventDefault();
-                        addToTable();
-                        inputs[0].focus()
-                    }
-                }
-            });
-        });
 
-        
+
+    document.querySelectorAll('.form-grid input').forEach((input, index, inputs) => {
+        input.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                const nextInput = inputs[index + 1];
+                if (nextInput) {
+                    event.preventDefault();
+                    nextInput.focus();
+                } else {
+                    event.preventDefault();
+                    addToTable();
+                    inputs[0].focus();
+                }
+            }
+        });
+    });
+</script>
 
     </script>
 </body>
